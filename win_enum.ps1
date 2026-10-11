@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    Automated Windows Enumeration Script for Privilege Escalation Assessment.
+    Automated Windows Enumeration Script for Privilege Escalation Assessment (v2).
 #>
 
 [CmdletBinding()]
@@ -8,7 +8,7 @@ param(
     [string]$OutFile = "$PSScriptRoot\enum_output.txt"
 )
 
-# Khởi tạo ghi log ra file
+# Start logging transcript if possible
 try {
     Start-Transcript -Path $OutFile -ErrorAction SilentlyContinue | Out-Null
 } catch {}
@@ -36,7 +36,7 @@ function Invoke-SafeBlock {
 }
 
 Write-Host "================================================================================" -ForegroundColor Magenta
-Write-Host "       WINDOWS AUTOMATED PRIVILEGE ESCALATION ENUMERATION SCRIPT                " -ForegroundColor Magenta
+Write-Host "       WINDOWS AUTOMATED PRIVILEGE ESCALATION ENUMERATION SCRIPT (v2)           " -ForegroundColor Magenta
 Write-Host "================================================================================" -ForegroundColor Magenta
 Write-Host "Execution Time : $(Get-Date)"
 Write-Host "Output File    : $OutFile`n"
@@ -136,7 +136,7 @@ Invoke-SafeBlock "Configuration Files in Common Directories (e.g. XAMPP)" {
 }
 
 Invoke-SafeBlock "User Document Files (*.txt, *.pdf, *.xls, *.xlsx, *.doc, *.docx)" {
-    \\(userPath = "\\)env:SystemDrive\Users\"
+    \$userPath = "C:\Users\"
     Get-ChildItem -Path \$userPath -Include *.txt,*.pdf,*.xls,*.xlsx,*.doc,*.docx -File -Recurse -ErrorAction SilentlyContinue |
         Select-Object FullName, Length, LastWriteTime |
         Select-Object -First 50
@@ -189,7 +189,7 @@ Invoke-SafeBlock "Running Windows Services & Executable Paths" {
             Where-Object { \$_.State -eq 'Running' } |
             Format-Table -AutoSize
     } catch {
-        Write-Host "[!] Get-CimInstance failed (Access Denied / Network Shell). Falling back to sc.exe query..." -ForegroundColor Yellow
+        Write-Host "[!] Get-CimInstance failed (possibly network logon or WMI access denied). Falling back to sc.exe query..." -ForegroundColor Yellow
         sc.exe query type= service state= all
     }
 }
@@ -222,7 +222,7 @@ Invoke-SafeBlock "Scheduled Tasks Summary" {
     }
 }
 
-# Dừng transcript
+# Stop transcript if running
 try {
     Stop-Transcript -ErrorAction SilentlyContinue | Out-Null
 } catch {}
