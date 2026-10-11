@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    Automated Windows Enumeration Script for Privilege Escalation Assessment (v2).
+    Automated Windows Enumeration Script for Privilege Escalation Assessment (v4).
 #>
 
 [CmdletBinding()]
@@ -36,7 +36,7 @@ function Invoke-SafeBlock {
 }
 
 Write-Host "================================================================================" -ForegroundColor Magenta
-Write-Host "       WINDOWS AUTOMATED PRIVILEGE ESCALATION ENUMERATION SCRIPT (v2)           " -ForegroundColor Magenta
+Write-Host "       WINDOWS AUTOMATED PRIVILEGE ESCALATION ENUMERATION SCRIPT (v4)           " -ForegroundColor Magenta
 Write-Host "================================================================================" -ForegroundColor Magenta
 Write-Host "Execution Time : $(Get-Date)"
 Write-Host "Output File    : $OutFile`n"
@@ -101,16 +101,20 @@ Invoke-SafeBlock "Active Network Connections & Listening Ports" {
 Write-SectionHeader "3. Software & Running Processes"
 
 Invoke-SafeBlock "Installed 32-bit Software (Registry)" {
-    Get-ItemProperty "HKLM:\SOFTWARE\Wow6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*" -ErrorAction SilentlyContinue |
-        Select-Object DisplayName, DisplayVersion, Publisher |
+    Get-ChildItem "HKLM:\SOFTWARE\Wow6432Node\Microsoft\Windows\CurrentVersion\Uninstall" -ErrorAction SilentlyContinue |
+        Get-ItemProperty -ErrorAction SilentlyContinue |
         Where-Object { \$_.DisplayName } |
+        Select-Object DisplayName, DisplayVersion, Publisher |
+        Sort-Object DisplayName |
         Format-Table -AutoSize
 }
 
 Invoke-SafeBlock "Installed 64-bit Software (Registry)" {
-    Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*" -ErrorAction SilentlyContinue |
-        Select-Object DisplayName, DisplayVersion, Publisher |
+    Get-ChildItem "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall" -ErrorAction SilentlyContinue |
+        Get-ItemProperty -ErrorAction SilentlyContinue |
         Where-Object { \$_.DisplayName } |
+        Sort-Object DisplayName |
+        Select-Object DisplayName, DisplayVersion, Publisher |
         Format-Table -AutoSize
 }
 
