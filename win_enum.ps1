@@ -201,14 +201,15 @@ Invoke-SafeBlock "Running Windows Services & Executable Paths" {
 Invoke-SafeBlock "Unquoted Service Paths Check (Pure PowerShell)" {
     Get-CimInstance -ClassName win32_service -ErrorAction SilentlyContinue |
         Where-Object {
-            \\(_.PathName -and 
-            \\)_.PathName -notmatch '^\s*"' -and 
-            \\(_.PathName -like '* *' -and 
-            \\)_.PathName -notlike 'C:\Windows\*'
+            $_.PathName -and 
+            $_.PathName -notmatch '^\s*"' -and 
+            $_.PathName -like '* *' -and 
+            $_.PathName -notlike 'C:\Windows\*'
         } |
         Select-Object Name, DisplayName, PathName, StartMode, State |
         Format-Table -AutoSize
 }
+
 
 # ==========================================
 # 7. Scheduled Tasks & Security Hotfixes
