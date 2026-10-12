@@ -1,7 +1,7 @@
 <#
 .SYNOPSIS
-    Automated Windows Enumeration Script for Privilege Escalation Assessment (v6).
-    Clean PowerShell syntax guaranteed.
+    Automated Windows Enumeration Script for Privilege Escalation Assessment (v7).
+    Fully fixed Registry, Document Search, and Scheduled Tasks blocks.
 #>
 
 [CmdletBinding()]
@@ -37,7 +37,7 @@ function Invoke-SafeBlock {
 }
 
 Write-Host "================================================================================" -ForegroundColor Magenta
-Write-Host "       WINDOWS AUTOMATED PRIVILEGE ESCALATION ENUMERATION SCRIPT (v6)           " -ForegroundColor Magenta
+Write-Host "       WINDOWS AUTOMATED PRIVILEGE ESCALATION ENUMERATION SCRIPT (v7)           " -ForegroundColor Magenta
 Write-Host "================================================================================" -ForegroundColor Magenta
 Write-Host "Execution Time : $(Get-Date)"
 Write-Host "Output File    : $OutFile`n"
@@ -102,18 +102,17 @@ Invoke-SafeBlock "Active Network Connections & Listening Ports" {
 Write-SectionHeader "3. Software & Running Processes"
 
 Invoke-SafeBlock "Installed 32-bit Software (Registry)" {
-    Get-ChildItem "HKLM:\SOFTWARE\Wow6432Node\Microsoft\Windows\CurrentVersion\Uninstall" -ErrorAction SilentlyContinue |
-        Get-ItemProperty -ErrorAction SilentlyContinue |
-        Where-Object { \$_.DisplayName } |
+    Get-ItemProperty "HKLM:\SOFTWARE\Wow6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*" -ErrorAction SilentlyContinue |
+        Where-Object DisplayName |
         Select-Object DisplayName, DisplayVersion, Publisher |
         Sort-Object DisplayName |
         Format-Table -AutoSize
 }
 
 Invoke-SafeBlock "Installed 64-bit Software (Registry)" {
-    Get-ChildItem "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall" -ErrorAction SilentlyContinue |
-        Get-ItemProperty -ErrorAction SilentlyContinue |
-        Where-Object { \$_.DisplayName } |
+    Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*" -ErrorAction SilentlyContinue |
+        Where-Object DisplayName |
+        Select-Object DisplayName, DisplayVersion, Publisher |
         Sort-Object DisplayName |
         Format-Table -AutoSize
 }
@@ -128,22 +127,25 @@ Invoke-SafeBlock "Running Processes" {
 Write-SectionHeader "4. Searching Sensitive Files & Credentials"
 
 Invoke-SafeBlock "KeePass Databases (*.kdbx)" {
-    Get-ChildItem -Path C:\ -Include *.kdbx -File -Recurse -ErrorAction SilentlyContinue | Select-Object FullName, Length, LastWriteTime
+    Get-ChildItem -Path "\$env:SystemDrive\" -Include *.kdbx -File -Recurse -ErrorAction SilentlyContinue | Select-Object FullName, Length, LastWriteTime
 }
 
 Invoke-SafeBlock "Configuration Files in Common Directories (e.g. XAMPP)" {
-    if (Test-Path "C:\xampp") {
-        Get-ChildItem -Path C:\xampp -Include *.txt,*.ini -File -Recurse -ErrorAction SilentlyContinue | Select-Object FullName
+    \\(xamppPath = "\\)env:SystemDrive\xampp"
+    if (Test-Path \$xamppPath) {
+        Get-ChildItem -Path \$xamppPath -Include *.txt,*.ini -File -Recurse -ErrorAction SilentlyContinue | Select-Object FullName
     } else {
-        Write-Host "C:\xampp does not exist."
+        Write-Host "\$xamppPath does not exist."
     }
 }
 
 Invoke-SafeBlock "User Document Files (*.txt, *.pdf, *.xls, *.xlsx, *.doc, *.docx)" {
-    \$userPath = "C:\Users\"
-    Get-ChildItem -Path \$userPath -Include *.txt,*.pdf,*.xls,*.xlsx,*.doc,*.docx -File -Recurse -ErrorAction SilentlyContinue |
-        Select-Object FullName, Length, LastWriteTime |
-        Select-Object -First 50
+    \\(userPath = "\\)env:SystemDrive\Users"
+    if (Test-Path \$userPath) {
+        Get-ChildItem -Path \$userPath -Include *.txt,*.pdf,*.xls,*.xlsx,*.doc,*.docx -File -Recurse -ErrorAction SilentlyContinue |
+            Select-Object FullName, Length, LastWriteTime -First 50 |
+            Format-Table -AutoSize
+    }
 }
 
 # ==========================================
@@ -170,14 +172,14 @@ Invoke-SafeBlock "PSReadLine History File" {
 }
 
 Invoke-SafeBlock "Public PowerShell Transcripts" {
-    \$transcriptDir = "C:\Users\Public\Transcripts"
+    \\(transcriptDir = "\\)env:SystemDrive\Users\Public\Transcripts"
     if (Test-Path \$transcriptDir) {
-        Get-ChildItem -Path \$transcriptDir -Recurse -ErrorAction SilentlyContinue | ForEach-Object {
+        Get-ChildItem -Path \$transcriptDir -Recurse -File -ErrorAction SilentlyContinue | ForEach-Object {
             Write-Host "--- Content of: \\((\\)_.FullName) ---"
             Get-Content \$_.FullName -ErrorAction SilentlyContinue
         }
     } else {
-        Write-Host "Directory C:\Users\Public\Transcripts does not exist."
+        Write-Host "Directory \$transcriptDir does not exist."
     }
 }
 
@@ -189,8 +191,8 @@ Write-SectionHeader "6. Windows Services & Vulnerable Service Paths"
 Invoke-SafeBlock "Running Windows Services & Executable Paths" {
     try {
         Get-CimInstance -ClassName win32_service -ErrorAction Stop |
+            Where-Object State -eq 'Running' |
             Select-Object Name, State, StartMode, PathName |
-            Where-Object { \$_.State -eq 'Running' } |
             Format-Table -AutoSize
     } catch {
         Write-Host "[!] Get-CimInstance failed (possibly network logon or WMI access denied). Falling back to sc.exe query..." -ForegroundColor Yellow
@@ -201,15 +203,14 @@ Invoke-SafeBlock "Running Windows Services & Executable Paths" {
 Invoke-SafeBlock "Unquoted Service Paths Check (Pure PowerShell)" {
     Get-CimInstance -ClassName win32_service -ErrorAction SilentlyContinue |
         Where-Object {
-            $_.PathName -and 
-            $_.PathName -notmatch '^\s*"' -and 
-            $_.PathName -like '* *' -and 
-            $_.PathName -notlike 'C:\Windows\*'
+            \\(_.PathName -and 
+            \\)_.PathName -notmatch '^\s*"' -and 
+            \\(_.PathName -like '* *' -and 
+            \\)_.PathName -notlike 'C:\Windows\*'
         } |
         Select-Object Name, DisplayName, PathName, StartMode, State |
         Format-Table -AutoSize
 }
-
 
 # ==========================================
 # 7. Scheduled Tasks & Security Hotfixes
@@ -229,7 +230,10 @@ Invoke-SafeBlock "Installed Security Updates (Hotfixes)" {
 
 Invoke-SafeBlock "Scheduled Tasks Summary" {
     if (Get-Command Get-ScheduledTask -ErrorAction SilentlyContinue) {
-        Get-ScheduledTask | Where-Object { \$_.State -ne 'Disabled' } | Select-Object TaskName, TaskPath, State | Select-Object -First 40 | Format-Table -AutoSize
+        Get-ScheduledTask -ErrorAction SilentlyContinue |
+            Where-Object State -ne 'Disabled' |
+            Select-Object TaskName, TaskPath, State -First 40 |
+            Format-Table -AutoSize
     } else {
         schtasks /query /fo LIST /v
     }
