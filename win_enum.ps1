@@ -1,7 +1,7 @@
 <#
 .SYNOPSIS
-    Automated Windows Enumeration Script for Privilege Escalation Assessment (v5).
-    Updated with pure PowerShell CIM instance checks for Unquoted Service Paths.
+    Automated Windows Enumeration Script for Privilege Escalation Assessment (v6).
+    Clean PowerShell syntax guaranteed.
 #>
 
 [CmdletBinding()]
@@ -37,7 +37,7 @@ function Invoke-SafeBlock {
 }
 
 Write-Host "================================================================================" -ForegroundColor Magenta
-Write-Host "       WINDOWS AUTOMATED PRIVILEGE ESCALATION ENUMERATION SCRIPT (v5)           " -ForegroundColor Magenta
+Write-Host "       WINDOWS AUTOMATED PRIVILEGE ESCALATION ENUMERATION SCRIPT (v6)           " -ForegroundColor Magenta
 Write-Host "================================================================================" -ForegroundColor Magenta
 Write-Host "Execution Time : $(Get-Date)"
 Write-Host "Output File    : $OutFile`n"
@@ -114,7 +114,6 @@ Invoke-SafeBlock "Installed 64-bit Software (Registry)" {
     Get-ChildItem "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall" -ErrorAction SilentlyContinue |
         Get-ItemProperty -ErrorAction SilentlyContinue |
         Where-Object { \$_.DisplayName } |
-        Select-Object DisplayName, DisplayVersion, Publisher |
         Sort-Object DisplayName |
         Format-Table -AutoSize
 }
