@@ -1,6 +1,7 @@
 <#
 .SYNOPSIS
-    Automated Windows Enumeration Script for Privilege Escalation Assessment (v4).
+    Automated Windows Enumeration Script for Privilege Escalation Assessment (v5).
+    Updated with pure PowerShell CIM instance checks for Unquoted Service Paths.
 #>
 
 [CmdletBinding()]
@@ -36,7 +37,7 @@ function Invoke-SafeBlock {
 }
 
 Write-Host "================================================================================" -ForegroundColor Magenta
-Write-Host "       WINDOWS AUTOMATED PRIVILEGE ESCALATION ENUMERATION SCRIPT (v4)           " -ForegroundColor Magenta
+Write-Host "       WINDOWS AUTOMATED PRIVILEGE ESCALATION ENUMERATION SCRIPT (v5)           " -ForegroundColor Magenta
 Write-Host "================================================================================" -ForegroundColor Magenta
 Write-Host "Execution Time : $(Get-Date)"
 Write-Host "Output File    : $OutFile`n"
@@ -113,8 +114,8 @@ Invoke-SafeBlock "Installed 64-bit Software (Registry)" {
     Get-ChildItem "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall" -ErrorAction SilentlyContinue |
         Get-ItemProperty -ErrorAction SilentlyContinue |
         Where-Object { \$_.DisplayName } |
-        Sort-Object DisplayName |
         Select-Object DisplayName, DisplayVersion, Publisher |
+        Sort-Object DisplayName |
         Format-Table -AutoSize
 }
 
@@ -198,8 +199,16 @@ Invoke-SafeBlock "Running Windows Services & Executable Paths" {
     }
 }
 
-Invoke-SafeBlock "Unquoted Service Paths Check" {
-    cmd.exe /c 'wmic service get name,pathname | findstr /i /v "C:\Windows\\" | findstr /i /v """'
+Invoke-SafeBlock "Unquoted Service Paths Check (Pure PowerShell)" {
+    Get-CimInstance -ClassName win32_service -ErrorAction SilentlyContinue |
+        Where-Object {
+            \\(_.PathName -and 
+            \\)_.PathName -notmatch '^\s*"' -and 
+            \\(_.PathName -like '* *' -and 
+            \\)_.PathName -notlike 'C:\Windows\*'
+        } |
+        Select-Object Name, DisplayName, PathName, StartMode, State |
+        Format-Table -AutoSize
 }
 
 # ==========================================
